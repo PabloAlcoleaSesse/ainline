@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="430" viewBox="0 0 1200 430" role="img" aria-labelledby="title desc">
+<title id="title">ainline — One command. Your models. Shared context.</title>
+<desc id="desc">Terminal examples: ai setup cl hk4.5, ai explain this project, and ai cp review this design.</desc>
+<rect width="1200" height="430" rx="24" fill="#101719"/>
+<path d="M0 340H1200M940 0V430" stroke="#233234"/>
+<g font-family="ui-monospace, SFMono-Regular, Consolas, monospace">
+<text x="58" y="108" font-size="70" font-weight="700" fill="#c4f36d">ai<tspan fill="#eef3ec">nline</tspan><tspan fill="#c4f36d">_</tspan></text>
+<text x="62" y="158" font-size="24" fill="#bbc7c3">Your models. Your terminal. Shared context.</text>
+<text x="62" y="224" font-size="24" fill="#c4f36d">❯<tspan fill="#eef3ec"> ai setup cl hk4.5</tspan></text>
+<text x="62" y="268" font-size="24" fill="#c4f36d">❯<tspan fill="#eef3ec"> ai explain this project</tspan></text>
+<text x="62" y="312" font-size="24" fill="#c4f36d">❯<tspan fill="#eef3ec"> ai cp review this design</tspan></text>
+<text x="62" y="389" font-size="18" fill="#98aaa3">RUST  /  MIT LICENSE  /  OPEN SOURCE</text>
+<text x="986" y="106" font-size="19" fill="#98aaa3">PROVIDERS</text>
+<g font-size="21" fill="#eef3ec"><text x="986" y="158">cl  claude</text><text x="986" y="198">cp  copilot</text><text x="986" y="238">ag  agy</text><text x="986" y="278">oa  openai</text><text x="986" y="318">ol  ollama</text></g>
+<text x="986" y="389" font-size="18" fill="#c4f36d">v0.1 · ALPHA</text>
+</g></svg>

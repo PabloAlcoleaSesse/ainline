@@ -1,0 +1,21 @@
+/target/
+/dist/
+.DS_Store
+
+# Local credentials, environments and editor state
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+/.idea/
+/.vscode/
+/coverage/
+__pycache__/
+*.pyc
+
+# Project context: shared rules may be committed deliberately
+/.ai/session.json
+/.ai/*.lock
+/.ai/.tmp*
+/.ai/rules/*.local.md

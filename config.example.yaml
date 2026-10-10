@@ -1,0 +1,45 @@
+# Used by ai <message>; an explicit provider overrides it.
+default_provider: claude
+# Select any key explicitly: ai <key> [flags] <message>.
+# Built-in providers are available even when this file contains only custom aliases.
+models:
+  claude:
+    provider: claude
+    binary: claude
+    model: sonnet
+  copilot:
+    provider: copilot
+    binary: copilot
+    model: claude-haiku-4.5
+  antigravity:
+    provider: antigravity
+    binary: agy
+    model: gemini-3.1-pro-high
+  openai:
+    provider: openai
+    binary: openai
+    model: gpt-4.1-mini
+  ollama:
+    provider: ollama
+    binary: ollama
+    model: qwen2.5-coder:7b
+  local-review:
+    provider: ollama
+    binary: ollama
+    model: qwen2.5-coder:7b
+
+# Optional overrides/extensions. Unspecified built-in codes remain available.
+# Keys here are full provider kinds, not two-letter shortcuts or custom aliases.
+model_aliases:
+  claude:
+    hk4.5: claude-haiku-4-5-20251001
+    sn4.5: claude-sonnet-4-5-20250929
+    op4.5: claude-opus-4-5-20251101
+  copilot:
+    hk4.5: claude-haiku-4.5
+  antigravity:
+    gp3.1: gemini-3.1-pro-high
+  openai:
+    gm4.1: gpt-4.1-mini
+  ollama:
+    qw2.5: qwen2.5-coder:7b

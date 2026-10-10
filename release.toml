@@ -1,0 +1,5 @@
+# cargo-release: create tags; GitHub Actions builds draft binary releases.
+publish = false
+push = false
+tag-name = "v{{version}}"
+pre-release-commit-message = "chore: release {{version}}"
