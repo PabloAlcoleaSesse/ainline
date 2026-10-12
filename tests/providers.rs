@@ -153,6 +153,9 @@ fn passthrough_rejects_protocol_overrides() {
         "--prompt=ignored",
         "-p",
         "--output-format=json",
+        "--json",
+        "--output-last-message=answer.txt",
+        "-oanswer.txt",
         "--input-format",
         "--model=wrong",
         "--continue",
@@ -163,4 +166,46 @@ fn passthrough_rejects_protocol_overrides() {
         assert!(provider::validate_args(&[flag.into()]).is_err(), "{flag}");
     }
     provider::validate_args(&["--effort".into(), "high".into()]).unwrap();
+}
+
+#[test]
+fn claude_stream_decodes_split_utf8_and_avoids_duplicate_results() {
+    use ainline::provider::claude::StreamDecoder;
+    let source = concat!(
+        "{\"type\":\"system\"}\n",
+        "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"delta\":{\"type\":\"text_delta\",\"text\":\"héllo\"}}}\n",
+        "{\"type\":\"assistant\",\"message\":{\"content\":[{\"type\":\"text\",\"text\":\"héllo\"}]}}\n",
+        "{\"type\":\"result\",\"subtype\":\"success\",\"is_error\":false,\"result\":\"héllo\"}\n"
+    );
+    let mut decoder = StreamDecoder::default();
+    let mut text = Vec::new();
+    for byte in source.as_bytes() {
+        for chunk in decoder.push(&[*byte]).unwrap() {
+            text.extend(chunk);
+        }
+    }
+    decoder.finish().unwrap();
+    assert_eq!(String::from_utf8(text).unwrap(), "héllo");
+    let mut decoder = StreamDecoder::default();
+    assert_eq!(
+        decoder
+            .push(b"{\"type\":\"result\",\"is_error\":false,\"result\":\"fallback\"}\n")
+            .unwrap()
+            .concat(),
+        b"fallback"
+    );
+    decoder.finish().unwrap();
+    let mut decoder = StreamDecoder::default();
+    decoder
+        .push(b"{\"type\":\"result\",\"is_error\":true,\"result\":\"authentication failed\"}\n")
+        .unwrap();
+    assert!(
+        decoder
+            .finish()
+            .unwrap_err()
+            .to_string()
+            .contains("authentication failed")
+    );
+    assert!(StreamDecoder::default().finish().is_err());
+    assert!(StreamDecoder::default().push(b"not-json\n").is_err());
 }

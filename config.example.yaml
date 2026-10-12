@@ -1,5 +1,12 @@
 # Used by ai <message>; an explicit provider overrides it.
 default_provider: claude
+# Optional profiles: ai --profile 2 <message>; alias ai2='ai --profile 2'.
+# Quote numeric profile names. Instructions stay active with --no-context.
+profiles:
+  '2':
+    provider: claude
+    model: hk4.5
+    instructions: Review code for correctness and explain edge cases.
 # Select any key explicitly: ai <key> [flags] <message>.
 # Built-in providers are available even when this file contains only custom aliases.
 models:
@@ -17,8 +24,8 @@ models:
     model: gemini-3.1-pro-high
   openai:
     provider: openai
-    binary: openai
-    model: gpt-4.1-mini
+    binary: codex
+    model: default # use Codex's configured/default model
   ollama:
     provider: ollama
     binary: ollama
@@ -39,7 +46,6 @@ model_aliases:
     hk4.5: claude-haiku-4.5
   antigravity:
     gp3.1: gemini-3.1-pro-high
-  openai:
-    gm4.1: gpt-4.1-mini
+  openai: {} # Add your own model codes for models available in Codex.
   ollama:
     qw2.5: qwen2.5-coder:7b

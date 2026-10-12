@@ -13,6 +13,7 @@ pub enum Kind {
     Copilot,
     Claude,
     Ollama,
+    #[serde(alias = "codex")]
     Openai,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -31,6 +32,8 @@ pub struct Config {
     pub models: BTreeMap<String, Model>,
     #[serde(default)]
     pub model_aliases: ModelAliases,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub profiles: BTreeMap<String, crate::profiles::Profile>,
 }
 fn default_provider() -> String {
     "claude".into()
@@ -40,7 +43,7 @@ impl Default for Config {
     fn default() -> Self {
         let models = [
             ("claude", Kind::Claude, "sonnet", "claude"),
-            ("openai", Kind::Openai, "gpt-4.1-mini", "openai"),
+            ("openai", Kind::Openai, "default", "codex"),
             ("copilot", Kind::Copilot, "claude-haiku-4.5", "copilot"),
             (
                 "antigravity",
@@ -66,6 +69,7 @@ impl Default for Config {
             default_provider: default_provider(),
             models,
             model_aliases: aliases::defaults(),
+            profiles: BTreeMap::new(),
         }
     }
 }
@@ -109,6 +113,18 @@ impl Config {
             }
         }
         let mut config: Self = serde_yaml_ng::from_value(value)?;
+        // Migrate the former API CLI's generated executable/default model. Preserve
+        // custom executable paths and explicit alternative model choices.
+        for model in config
+            .models
+            .values_mut()
+            .filter(|m| m.provider == Kind::Openai && m.binary == "openai")
+        {
+            model.binary = "codex".into();
+            if model.model == "gpt-4.1-mini" {
+                model.model = "default".into();
+            }
+        }
         // Built-in names remain available when a config contains only custom aliases.
         for (id, model) in Self::default().models {
             config.models.entry(id).or_insert(model);
@@ -131,7 +147,7 @@ impl Config {
             aliases::provider(id)
         };
         self.models.get(id).cloned().with_context(|| format!(
-            "unknown provider '{id}'; choose cl/claude, cp/copilot, ag/antigravity, oa/openai, ol/ollama or a configured alias"
+            "unknown provider '{id}'; choose cl/claude, cp/copilot, ag/antigravity, oa/codex/openai, ol/ollama or a configured alias"
         ))
     }
 
@@ -160,7 +176,19 @@ impl Config {
                 "empty model or binary: {id}"
             );
             anyhow::ensure!(
-                !["config", "context", "status", "models", "setup", "help"].contains(&id.as_str())
+                ![
+                    "config",
+                    "context",
+                    "status",
+                    "models",
+                    "setup",
+                    "profile",
+                    "help",
+                    "doctor",
+                    "task",
+                    "completions"
+                ]
+                .contains(&id.as_str())
                     && !id.starts_with('-')
                     && !id.chars().any(char::is_whitespace),
                 "invalid or reserved provider alias: {id}"
@@ -178,6 +206,28 @@ impl Config {
                         && !model.chars().any(char::is_whitespace),
                     "invalid model ID for shorthand '{code}'"
                 );
+            }
+        }
+        for (name, profile) in &self.profiles {
+            crate::profiles::validate_name(name)?;
+            if let Some(path) = &profile.instructions_file {
+                anyhow::ensure!(
+                    path.is_absolute(),
+                    "profile '{name}' instructions_file must be absolute"
+                );
+                anyhow::ensure!(
+                    profile.instructions.is_empty(),
+                    "profile '{name}' cannot combine inline and file instructions"
+                );
+            }
+            let model = self.resolve(
+                profile
+                    .provider
+                    .as_deref()
+                    .unwrap_or(&self.default_provider),
+            )?;
+            if let Some(name) = &profile.model {
+                self.resolve_model(model.provider, name)?;
             }
         }
         Ok(())

@@ -6,7 +6,7 @@
   <a href="https://github.com/PabloAlcoleaSesse/ainline/actions/workflows/ci.yml"><img src="https://github.com/PabloAlcoleaSesse/ainline/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-c4f36d?labelColor=101719" alt="MIT license"></a>
   <img src="https://img.shields.io/badge/Rust-1.89%2B-c4f36d?labelColor=101719" alt="Rust 1.89 or newer">
-  <img src="https://img.shields.io/badge/status-alpha-e9bf75?labelColor=101719" alt="Alpha software">
+  <img src="https://img.shields.io/badge/version-1.0.0-c4f36d?labelColor=101719" alt="Version 1.0.0">
 </p>
 
 **`ai` adds shared project context to the model CLIs you already use.** Pick a
@@ -40,8 +40,9 @@ ai what is this project about
 ```
 
 The package is named **`ainline`**; the installed executable is **`ai`**. The package
-is not published to crates.io. Binary releases are planned; source installation
-is the supported path today. Uninstall with `cargo uninstall ainline`.
+is not published to crates.io. Source installation works today. Release automation now generates archives, checksums,
+a Python-free shell installer for macOS/Linux, a Windows Python installer, and a Homebrew formula; downloads require a published release. See
+[installation and uninstall instructions](docs/installation.md).
 
 Before a real request, preview exactly what `ai` assembles:
 
@@ -57,14 +58,20 @@ ai [provider] [model-code] [flags] <message>
 
 | What you want | Command |
 | --- | --- |
+| Run reusable instructions | `ai task review` |
+| Inspect included context | `ai context explain --json` |
 | Use saved defaults | `ai explain this error` |
 | Choose a provider | `ai cp review this design` |
 | Choose provider + model | `ai cl hk4.5 explain this function` |
 | Use a full model ID | `ai cl --model claude-haiku-4-5-20251001 explain this` |
 | Set your defaults | `ai setup cl hk4.5` |
-| Set another provider's model | `ai config model oa gm4.1` |
+| Set another provider's model | `ai config model oa default` |
 | List model shortcuts | `ai models cl` |
 | Skip project context | `ai ol --no-context explain ownership` |
+| Attach specific files | `ai -f src/main.rs explain this function` |
+| Include git diff | `ai --diff review my changes` |
+| Copy output to clipboard | `ai -c generate email validation regex` |
+| Generate shell completions | `ai completions zsh` |
 | Forward a native option | `ai cl --provider-arg=--effort --provider-arg=high review this` |
 
 | Provider | Short name | Example model code |
@@ -72,7 +79,7 @@ ai [provider] [model-code] [flags] <message>
 | Claude Code | `cl` | `hk4.5`, `sn4.5`, `op4.5` |
 | GitHub Copilot CLI | `cp` | `hk4.5` |
 | Google Antigravity CLI (`agy`) | `ag` | `gp3.1` |
-| OpenAI CLI | `oa` | `gm4.1` |
+| OpenAI Codex CLI | `oa` / `codex` | Native Codex default |
 | Ollama | `ol` | `qw2.5` |
 
 Model codes are explicit, configurable mappings. They do not guarantee account
@@ -82,6 +89,30 @@ A recognized provider in the first argument selects it; otherwise the words are
 the message for your default. Reserved administrative commands keep their usual
 meaning. Use `ai -- ...` to make everything after `--` literal message text.
 Flags go before the message. See the [full syntax and mappings](docs/usage.md).
+
+## Your own `ai2`, `ai3`, or named agent
+
+Save independent defaults and optional instructions in a profile:
+
+```sh
+ai profile create 2 cl hk4.5 --instructions "Review code. Focus on correctness and edge cases." --install
+printf '%s\n' 'Explain briefly, with examples.' > explainer.md
+ai profile create 3 ol qw2.5 --instructions-file ./explainer.md --install
+
+# Shortcuts install beside ai.
+
+ai2 review this endpoint
+ai3 explain Rust lifetimes
+ai2 oa give me a second opinion
+ai2 status
+```
+
+Named profiles work too: `ai profile set reviewer cp hk4.5`, then
+`ai --profile reviewer review this design`. No fixed set of numbered slots is
+required. Profiles share project context; instructions are prepended to requests.
+Explicit provider/model choices override saved defaults. See
+[profiles](docs/usage.md#profiles-and-numbered-commands) for precedence, Windows
+shortcuts, and configuration details.
 
 ## Context that stays with the project
 
@@ -119,21 +150,31 @@ answer=$(ai ol --no-context "Explain ownership in one sentence")
 stdout carries the response; stderr carries diagnostics. Provider failures keep
 their exit codes. There is no implicit retry or fallback. Enable your shell's
 `pipefail` when failure in an earlier pipeline stage should fail the pipeline.
-Responses are currently buffered until completion.
+Claude, Copilot, and Ollama stream response text. Codex returns its final answer;
+Antigravity buffers and validates its structured response. Use `--no-stream` when you need stdout
+to remain empty on provider failure; streaming can leave partial text on failure.
 
-## Status: usable alpha
+Requests default to a **300-second timeout** and **16 MiB combined output limit**.
+Override with `--timeout 60 --max-output-bytes 1048576`. Timeout exits with 124;
+Ctrl+C exits with 130. Child groups/jobs are cleaned up on exit.
 
-This project is ready for experimentation and feedback. The current local suite
-has **30 tests**, including simulated providers, configuration migrations, default
+## Version 1.0.0
+
+The 1.0 release includes direct provider execution, profiles, reusable tasks and
+context inspection. The current local suite
+has **53 Rust tests**, including simulated providers, profiles, configuration migrations, default
 selection, shorthand parsing, context persistence, and provider exit handling.
-Provider integration tests do not make paid requests.
+Automated tests use local fixtures. See the [compatibility report](docs/compatibility.md)
+for installed-version checks and the separate opt-in live probe.
 
 Known limits matter before you rely on it unattended:
 
 - Live compatibility and minimum versions for all five providers still need
   systematic verification. Provider flags and model availability can change.
-- Provider output is buffered without a size cap. A general timeout and robust
-  process-tree cancellation are planned; Antigravity has its own five-minute limit.
+- Unix process groups and Windows Job Objects supervise children. Deliberately
+  detached Unix processes can escape their group; this is not an isolation sandbox.
+- Windows implementation and platform tests still need confirmation on Windows CI.
+  Antigravity also retains its own five-minute native limit.
 - Provider permissions, hooks, and local settings still apply. Antigravity's plan
   mode is not a sandbox, and native flags can alter provider behavior.
 - The cross-platform workflow is configured; inspect its actual results before
@@ -170,3 +211,17 @@ through the process in [SECURITY.md](SECURITY.md), without posting secrets publi
 An independent community project; not affiliated with or endorsed by the provider
 vendors. Provider subscriptions, terms, and usage charges apply separately.
 # ainline
+
+### Diagnose and share
+
+```sh
+ai doctor oa
+ai --profile 2 doctor --json
+ai profile export 2 --output reviewer.yaml
+ai profile import reviewer.yaml --name reviewer
+```
+
+Doctor checks the selected executable and supported native authentication status
+without a model request. Profile exports embed instructions; review them before
+sharing. See [diagnostics and sharing](docs/usage.md#diagnostics) for limits and
+provider coverage.

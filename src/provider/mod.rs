@@ -3,13 +3,9 @@ pub mod claude;
 pub mod copilot;
 pub mod ollama;
 pub mod openai;
+pub mod process;
 use crate::config::{Kind, Model};
-use std::{
-    ffi::OsString,
-    io::Write,
-    path::Path,
-    process::{Command, Stdio},
-};
+use std::{ffi::OsString, path::Path, process::Command};
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -18,6 +14,10 @@ pub enum ProviderError {
     Io(#[from] std::io::Error),
     #[error("provider exited with {code:?}: {message}")]
     Failed { code: Option<i32>, message: String },
+    #[error("provider timed out")]
+    Timeout,
+    #[error("provider output exceeded {0} bytes")]
+    OutputLimit(u64),
     #[error("provider interrupted")]
     Interrupted,
     #[error("provider argument {0} changes the request protocol; use ai flags instead")]
@@ -63,7 +63,7 @@ pub fn validate_args(args: &[OsString]) -> Result<(), ProviderError> {
         // Reserve these letters in any short-option token to avoid bypasses.
         let reserved_short = text.starts_with('-')
             && !text.starts_with("--")
-            && text[1..].chars().any(|c| "pimhvcr".contains(c));
+            && text[1..].chars().any(|c| "pimhvcro".contains(c));
         if reserved_short
             || matches!(
                 key,
@@ -75,6 +75,8 @@ pub fn validate_args(args: &[OsString]) -> Result<(), ProviderError> {
                     | "--prompt-interactive"
                     | "--input-format"
                     | "--output-format"
+                    | "--json"
+                    | "--output-last-message"
                     | "--model"
                     | "-m"
                     | "--help"
@@ -102,28 +104,60 @@ pub fn execute_with_args(
     cwd: &Path,
     args: &[OsString],
 ) -> Result<Vec<u8>, ProviderError> {
+    execute_controlled(
+        model,
+        binary,
+        prompt,
+        cwd,
+        args,
+        process::Limits::default(),
+        false,
+    )
+}
+
+pub fn execute_controlled(
+    model: &Model,
+    binary: &Path,
+    prompt: &str,
+    cwd: &Path,
+    args: &[OsString],
+    limits: process::Limits,
+    stream: bool,
+) -> Result<Vec<u8>, ProviderError> {
     validate_args(args)?;
     let provider = adapter(model.provider);
     let input = provider.input(&model.model, prompt);
-    let mut command = provider.command(binary, &model.model);
-    command.args(args);
-    let mut child = command
-        .current_dir(cwd)
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()?;
-    let mut stdin = child.stdin.take().expect("piped stdin");
-    // Write concurrently: a child may emit output before consuming the whole request.
-    let writer = std::thread::spawn(move || stdin.write_all(input.as_bytes()));
-    let output = child.wait_with_output()?;
-    let written = writer
-        .join()
-        .map_err(|_| ProviderError::Response("stdin writer panicked".into()))?;
+    let mut command = if stream && model.provider == Kind::Claude {
+        claude::streaming_command(binary, &model.model)
+    } else {
+        provider.command(binary, &model.model)
+    };
+    command.args(args).current_dir(cwd);
+    let stream = if !stream || !supports_streaming(model.provider) {
+        process::Stream::Buffered
+    } else if model.provider == Kind::Claude {
+        process::Stream::Claude
+    } else {
+        process::Stream::Text
+    };
+    let output = process::run(command, input.into_bytes(), limits, stream)?;
     if output.status.code().is_none() || matches!(output.status.code(), Some(130 | 143)) {
         return Err(ProviderError::Interrupted);
     }
-    // Some CLIs encode cancellation in JSON while returning a generic exit code.
+    let diagnostic = if output.stderr.is_empty() {
+        &output.stdout
+    } else {
+        &output.stderr
+    };
+    let mut failure_message: String = String::from_utf8_lossy(diagnostic)
+        .chars()
+        .take(2000)
+        .collect();
+    if failure_message.is_empty()
+        && let Err(error) = &output.stream_result
+    {
+        failure_message = error.to_string();
+    }
     let decoded = provider.output(output.stdout);
     if matches!(&decoded, Err(ProviderError::Interrupted)) {
         return decoded;
@@ -131,14 +165,15 @@ pub fn execute_with_args(
     if !output.status.success() {
         return Err(ProviderError::Failed {
             code: output.status.code(),
-            message: String::from_utf8_lossy(&output.stderr)
-                .chars()
-                .take(2000)
-                .collect(),
+            message: failure_message,
         });
     }
-    // A successful child can still report useful warnings or permission notices.
-    std::io::stderr().lock().write_all(&output.stderr)?;
-    written?;
+    output.written?;
+    output.stream_result?;
     decoded
+}
+
+/// Forward text as emitted by the CLI. Structured adapters validate before printing.
+pub fn supports_streaming(kind: Kind) -> bool {
+    matches!(kind, Kind::Claude | Kind::Copilot | Kind::Ollama)
 }

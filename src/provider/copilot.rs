@@ -11,6 +11,8 @@ impl Provider for Copilot {
             "--model",
             model,
             "--silent",
+            "--stream",
+            "on",
             "--output-format",
             "text",
             "--no-ask-user",

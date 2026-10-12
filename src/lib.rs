@@ -1,6 +1,12 @@
 pub mod aliases;
 pub mod cli;
+pub mod clipboard;
 pub mod config;
 pub mod context;
+pub mod doctor;
+pub mod profiles;
+pub mod prompt;
 pub mod provider;
+pub mod status;
 pub mod storage;
+pub mod tasks;

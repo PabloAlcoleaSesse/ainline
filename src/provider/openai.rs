@@ -1,45 +1,28 @@
-use super::{Provider, ProviderError};
+//! OpenAI is exposed through the user's Codex CLI, not the API-oriented `openai` CLI.
+use super::Provider;
 use std::{path::Path, process::Command};
 pub struct OpenAi;
 impl Provider for OpenAi {
-    fn command(&self, binary: &Path, _model: &str) -> Command {
-        let mut c = Command::new(binary);
-        c.args(["responses", "create"]);
-        c
-    }
-    fn input(&self, model: &str, prompt: &str) -> String {
-        // JSON is a YAML subset accepted by the official CLI's request-body stdin.
-        serde_json::json!({"model": model, "input": prompt}).to_string()
-    }
-    fn output(&self, bytes: Vec<u8>) -> Result<Vec<u8>, ProviderError> {
-        let value: serde_json::Value =
-            serde_json::from_slice(&bytes).map_err(|e| ProviderError::Response(e.to_string()))?;
-        if value["status"] != "completed" {
-            return Err(ProviderError::Response(format!(
-                "response status: {}",
-                value["status"]
-            )));
+    fn command(&self, binary: &Path, model: &str) -> Command {
+        let mut command = Command::new(binary);
+        command.args([
+            "--no-daemon",
+            "--ask-for-approval",
+            "never",
+            "exec",
+            "--sandbox",
+            "read-only",
+            "--ephemeral",
+            "--skip-git-repo-check",
+            "--color",
+            "never",
+        ]);
+        // Leave model selection to Codex unless the user explicitly configured one.
+        if model != "default" {
+            command.args(["--model", model]);
         }
-        let mut text = String::new();
-        if let Some(items) = value["output"].as_array() {
-            for item in items {
-                if item["type"] != "message" {
-                    continue;
-                }
-                if let Some(parts) = item["content"].as_array() {
-                    for part in parts {
-                        if let Some(t) = part["text"].as_str().or_else(|| part["refusal"].as_str())
-                        {
-                            text.push_str(t);
-                        }
-                    }
-                }
-            }
-        }
-        if text.is_empty() {
-            return Err(ProviderError::Response("no assistant text".into()));
-        }
-        text.push('\n');
-        Ok(text.into_bytes())
+        // No positional prompt: codex exec reads the assembled request from stdin.
+        // Native progress goes to stderr and the final answer goes to stdout.
+        command
     }
 }

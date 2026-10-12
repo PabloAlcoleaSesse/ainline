@@ -35,3 +35,8 @@ or silently reset corrupt sessions. Commit Cargo.lock changes with dependency up
 Describe behavior changes and checks run. Include OS and provider CLI versions
 when reporting compatibility issues. Never include API keys, private rules or
 session contents in issue reports.
+
+The process fixture is compiled with `rustc` during tests. It exercises slow and
+blocked pipes, descendant cleanup, and streaming without provider credentials.
+For optional real-provider checks, follow [compatibility.md](docs/compatibility.md);
+keep live calls outside ordinary CI and report unverified environments explicitly.

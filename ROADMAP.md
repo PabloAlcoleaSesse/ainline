@@ -1,13 +1,11 @@
 # Roadmap
 
 The scope is a small, predictable CLI: choose a provider or use saved defaults,
-add project context, and return the result. This is an alpha roadmap, not a delivery
+add project context, and return the result. This is a post-1.0 roadmap, not a delivery
 schedule. Proposals should include an example workflow and its tradeoffs.
 
-## Before a stable release
+## Release validation and follow-up
 
-- General request timeout and reliable cleanup of child process trees.
-- Bound provider output and support streaming where the provider protocol allows.
 - Verify live adapters against documented minimum CLI versions and keep a
   compatibility matrix; extend real cancellation tests.
 - Complete Linux, macOS, Windows and minimum-Rust validation in CI.
@@ -23,11 +21,20 @@ schedule. Proposals should include an example workflow and its tradeoffs.
 
 ## Already implemented
 
+- Reusable tasks, exact context source previews and read-only dry runs.
+- Cross-platform provider contract fixtures and pinned native help-check workflow.
+- Verified-download installer, generated binary Homebrew formula and source tap formula.
+
+- Installed numbered/named profile shortcuts, linked instruction files, and effective status.
+- Deadlines, bounded output, process-group/job cleanup, and blocked-pipe tests.
+- Claude delta streaming, Copilot/Ollama text streaming, and buffered-output mode.
+- Repeatable provider compatibility probes and an honest local verification matrix.
+
 - Five provider adapters with explicit selection and configurable defaults.
 - Provider and model shorthand, full model IDs and native-argument escape hatch.
 - Project rules, local rules, expiring notes, stack detection and Git summaries.
 - stdin pipelines, dry runs, model listing and native failure exit codes.
-- Cross-platform CI configuration, release gating, checksums and draft prereleases.
+- Cross-platform CI configuration, release gating, checksums and stable releases.
 
 Automatic task classification, hidden fallback and provider billing estimation
 are outside the current scope.

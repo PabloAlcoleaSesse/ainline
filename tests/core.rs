@@ -134,20 +134,50 @@ fn config_validates_aliases_and_preserves_legacy_models() {
 }
 
 #[test]
-fn openai_body_and_response_handle_special_text_and_reasoning() {
+fn openai_uses_codex_stdin_and_preserves_native_defaults() {
     let p = provider::openai::OpenAi;
-    let body: serde_json::Value =
-        serde_json::from_str(&p.input("model", "colon: {foo}\n$(touch /tmp/no)")).unwrap();
-    assert_eq!(body["input"], "colon: {foo}\n$(touch /tmp/no)");
-    let text = p.output(br#"{"status":"completed","output":[{"type":"reasoning"},{"type":"message","content":[{"type":"output_text","text":"ok"}]}]}"#.to_vec()).unwrap();
-    assert_eq!(text, b"ok\n");
-    assert!(p.output(br#"{"status":"failed"}"#.to_vec()).is_err());
-    let args: Vec<_> = p
-        .command(Path::new("openai"), "model")
+    let prompt = "colon: {foo}\n$(touch /tmp/no)";
+    assert_eq!(p.input("default", prompt), prompt);
+    assert_eq!(
+        p.output(b"final answer\n".to_vec()).unwrap(),
+        b"final answer\n"
+    );
+    let command = p.command(Path::new("codex"), "default");
+    let args: Vec<_> = command
         .get_args()
-        .map(|s| s.to_owned())
+        .map(|s| s.to_string_lossy().into_owned())
         .collect();
-    assert_eq!(args, ["responses", "create"]);
+    assert_eq!(
+        args,
+        [
+            "--no-daemon",
+            "--ask-for-approval",
+            "never",
+            "exec",
+            "--sandbox",
+            "read-only",
+            "--ephemeral",
+            "--skip-git-repo-check",
+            "--color",
+            "never"
+        ]
+    );
+    let command = p.command(Path::new("codex"), "my-codex-model");
+    assert!(command.get_args().collect::<Vec<_>>().ends_with(&[
+        std::ffi::OsStr::new("--model"),
+        std::ffi::OsStr::new("my-codex-model")
+    ]));
+    let config = Config::default();
+    for id in ["oa", "openai", "codex"] {
+        assert_eq!(config.resolve(id).unwrap().binary, "codex");
+    }
+    let old = "models:\n  openai: {provider: openai, binary: openai, model: gpt-4.1-mini}";
+    let config = Config::parse(old).unwrap();
+    assert_eq!(config.resolve("oa").unwrap().binary, "codex");
+    assert_eq!(config.resolve("oa").unwrap().model, "default");
+    assert!(Config::parse(&old.replace("provider: openai", "provider: codex")).is_ok());
+    let custom = Config::parse(&old.replace("gpt-4.1-mini", "custom-model")).unwrap();
+    assert_eq!(custom.resolve("oa").unwrap().model, "custom-model");
 }
 
 #[test]
@@ -289,4 +319,25 @@ fn default_provider_selection_preserves_plain_messages_and_explicit_overrides() 
         Config::parse("models: {}\n").unwrap().default_provider,
         "claude"
     );
+}
+
+#[test]
+fn profiles_validate_config_and_numbered_executable_names() {
+    use ainline::profiles::invoked_profile;
+    assert_eq!(invoked_profile("/usr/local/bin/ai27"), Some("27".into()));
+    assert_eq!(invoked_profile("ai999.exe"), Some("999".into()));
+    for name in ["ai", "ainline", "ai2-backup", "ai.exe"] {
+        assert_eq!(invoked_profile(name), None);
+    }
+    let config = Config::parse("profiles:\n  '2':\n    provider: cl\n    model: hk4.5\n    instructions: Review carefully\n").unwrap();
+    assert_eq!(config.profiles["2"].instructions, "Review carefully");
+    for yaml in [
+        "profiles:\n  '../bad': {}",
+        "profiles:\n  '2': {provider: missing}",
+        "profiles:\n  '2': {provider: ol, model: hk4.5}",
+        "profiles:\n  '2': {instruction: typo}",
+        "models:\n  profile: {provider: ollama, model: local, binary: ollama}",
+    ] {
+        assert!(Config::parse(yaml).is_err(), "{yaml}");
+    }
 }

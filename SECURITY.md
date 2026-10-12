@@ -1,7 +1,6 @@
 # Security policy
 
-ainline is alpha software. Security fixes currently target the latest development
-version; there is no long-term support or guaranteed response-time commitment.
+Security fixes target the latest released 1.x version; there is no long-term support or guaranteed response-time commitment.
 
 ## Reporting a vulnerability
 
@@ -23,9 +22,11 @@ affected version, platform, impact, and a proposed fix if you have one.
   arguments retain provider semantics; `--provider-arg` is not a sandbox.
 - Antigravity plan mode is not a security boundary. Provider permission settings
   may allow additional reads or operations beyond the assembled prompt.
-- Input limits and atomic state writes are implemented. Output limits, general
-  timeouts, process-tree cancellation and stronger symlink defenses remain work
-  in progress; see ROADMAP.md.
+- Input/output limits, deadlines, atomic state writes and child group/job cleanup
+  are implemented. Detached Unix processes may escape a group; this is not a sandbox.
+  Stronger context symlink defenses remain on the roadmap.
+- Linked instruction files are read on each request. Only link files you trust;
+  `--no-context` does not suppress explicit profile instructions.
 
 Never commit `.env` files, credentials, `.ai/session.json`, or local rules. The
 provided ignore rules help prevent accidents but are not a secret scanner.

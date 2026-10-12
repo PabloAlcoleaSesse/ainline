@@ -1,4 +1,4 @@
-# cargo-release: create tags; GitHub Actions builds draft binary releases.
+# cargo-release: create tags; GitHub Actions validates and publishes binary releases.
 publish = false
 push = false
 tag-name = "v{{version}}"

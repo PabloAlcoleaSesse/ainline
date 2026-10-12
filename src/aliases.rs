@@ -9,7 +9,7 @@ pub fn provider(name: &str) -> &str {
         "cl" => "claude",
         "cp" => "copilot",
         "ag" => "antigravity",
-        "oa" => "openai",
+        "oa" | "codex" => "openai",
         "ol" | "local" => "ollama",
         _ => name,
     }
@@ -32,7 +32,6 @@ pub fn defaults() -> ModelAliases {
         (Kind::Claude, "op4.5", "claude-opus-4-5-20251101"),
         (Kind::Copilot, "hk4.5", "claude-haiku-4.5"),
         (Kind::Antigravity, "gp3.1", "gemini-3.1-pro-high"),
-        (Kind::Openai, "gm4.1", "gpt-4.1-mini"),
         (Kind::Ollama, "qw2.5", "qwen2.5-coder:7b"),
     ]
     .into_iter()
