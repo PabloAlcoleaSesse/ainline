@@ -22,9 +22,10 @@ pub fn collect(root: &Path, git: bool) -> String {
                 .env("GIT_OPTIONAL_LOCKS", "0")
                 .output()
             {
-                if out.status.success() {
-                    result.push_str(&String::from_utf8_lossy(&out.stdout));
+                if !out.status.success() {
+                    continue;
                 }
+                result.push_str(&String::from_utf8_lossy(&out.stdout));
             }
         }
     }

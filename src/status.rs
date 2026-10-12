@@ -40,12 +40,10 @@ pub fn report(config: &Config, name: Option<&str>, root: &Path) -> Result<String
         "Output: {}",
         if provider::supports_streaming(model.provider) {
             "streaming text (Claude deltas; native text for Copilot/Ollama)"
+        } else if model.provider == crate::config::Kind::Openai {
+            "Codex final answer buffered until successful exit"
         } else {
-            if model.provider == crate::config::Kind::Openai {
-                "Codex final answer buffered until successful exit"
-            } else {
-                "structured response buffered and validated"
-            }
+            "structured response buffered and validated"
         }
     )?;
     writeln!(
